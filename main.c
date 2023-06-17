@@ -1,4 +1,5 @@
 #include "hal.h"
+#include "mpu6050.h"
 #include <stdio.h>
 
 #define FREQ 48000000
@@ -26,87 +27,45 @@ int main() {
 	dma_init();
 	i2c_init(0x68);
 
-	uint8_t status;
-
+	// i2c interrupt
 	nvic_irq_set_priority(23,5);
 	NVIC_IRQ_enable(23);
+
+	// dma ch1 (i2c rx) interrupt
 	nvic_irq_set_priority(9,0);
 	NVIC_IRQ_enable(9);
+
+	// dma ch2 (i2c tx) interrupt
 	nvic_irq_set_priority(10,5);
 	NVIC_IRQ_enable(10);
+
+	// exti (mpu6050) interrupt
 	nvic_irq_set_priority(5,10);
 	NVIC_IRQ_enable(5);
 
-	uint8_t tx_buff[3] = {0};
+	uint8_t tx_buff[8] = {0};
 	uint8_t accel_buff[6] = {0};
 	uint8_t gyro_buff[6] = {0};
 
-	// Disable imu reset
-	tx_buff[0] = 107;
-	tx_buff[1] = 0;
-	i2c_write_buff_dma(tx_buff, 2);
-	while(!dma_tx_done);
-	dma_tx_done = 0;
+	mpu_init(MPU_ACCEL_8g, MPU_GYRO_1000deg, tx_buff);
 
-	// FIFO Enable Gyro x,y,z & Accel
-	tx_buff[0] = 0x23;
-	tx_buff[1] = 0x78;
-	i2c_write_buff_dma(tx_buff, 2);
-	while(!dma_tx_done);
-	dma_tx_done = 0;
-
-	// Enable interrupt (active low, open-drain)
-	tx_buff[0] = 0x37;
-	tx_buff[1] = 0x20;
-	tx_buff[2] = 0x01;
-	i2c_write_buff_dma(tx_buff, 3);
-	while(!dma_tx_done);
-	dma_tx_done = 0;
-
-	// config for Accel (8g) and Gyro (1000deg)
-	tx_buff[0] = 0x1b;
-	tx_buff[1] = 0x10;
-	tx_buff[2] = 0x10;
-	i2c_write_buff_dma(tx_buff, 3);
-	while(!dma_tx_done);
-	dma_tx_done = 0;
-
+	uint8_t err;
 	while (1)
 	{
 		while(!exti_done);
 		exti_done = 0;
 
 		// read int status
-		i2c_read_buff_dma(0x3a, &status, 1);
-		while(!dma_rx_done) {
-			if (nack)
-				break;
-		}
-		nack = 0;
-		dma_rx_done = 0;
-		if (nack)
+		err = mpu_int_status(tx_buff);
+		if (err)
 			continue;
-
-		// read accel config
-		i2c_read_buff_dma(0x3b, accel_buff, 6);
-		while(!dma_rx_done) {
-			if (nack)
-				break;
-		}
-		nack = 0;
-		dma_rx_done = 0;
-		if (nack)
+		// read acceleration value
+		err = mpu_read_accel(accel_buff);
+		if (err)
 			continue;
-
-		// read gyro config
-		i2c_read_buff_dma(0x43, gyro_buff, 6);
-		while(!dma_rx_done) {
-			if (nack)
-				break;
-		}
-		nack = 0;
-		dma_rx_done = 0;
-		if (nack)
+		// read gyroscope value
+		err = mpu_read_gyro(gyro_buff);
+		if (err)
 			continue;
 
 		uart2_write_byte('$');
@@ -118,6 +77,37 @@ int main() {
 		uart2_write_buff(gyro_buff, 6);
 	}
 	
+	return 0;
+}
+
+uint8_t mpu_write_reg(mpu_reg_t reg, uint8_t* tx_buff, uint8_t size) {
+	uint8_t tmp1 = tx_buff[0];
+	for(uint32_t i = 0; i < size; i++) {
+		uint8_t tmp2 = tx_buff[i+1];
+		tx_buff[i+1] = tmp1;
+		tmp1 = tmp2;
+	}
+	tx_buff[0] = reg;
+	i2c_write_buff_dma(tx_buff, size+1);
+	uint8_t err = nack;
+	nack = 0;
+	if (err)
+		return 1;
+	while(!dma_tx_done);
+	dma_tx_done = 0;
+
+	return 0;
+}
+
+uint8_t mpu_read_reg(mpu_reg_t reg, uint8_t* rx_buff, uint8_t size) {
+	i2c_read_buff_dma(reg, rx_buff, size);
+	uint8_t err = nack;
+	nack = 0;
+	if (err)
+		return 1;
+	while(!dma_rx_done);
+	dma_rx_done = 0;
+
 	return 0;
 }
 
