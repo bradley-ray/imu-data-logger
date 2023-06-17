@@ -6,8 +6,6 @@ extern volatile uint8_t dma_rx_done;
 extern volatile uint8_t dma_tx_done;
 extern volatile uint8_t exti_done;
 extern volatile uint8_t nack;
-extern volatile uint8_t berr;
-extern volatile uint8_t arlo;
 
 void hardfault_handler(void) {
 	while(1);
@@ -42,15 +40,5 @@ void i2c1_irq_handler(void) {
 		nack = 1;
 		I2C->ICR |= BIT(4);
 		I2C->ISR |= BIT(0);
-	}
-
-	if (I2C->ISR & BIT(8)) {
-		berr = 1;
-		I2C->ICR |= BIT(8);
-	}
-
-	if (I2C->ISR & BIT(9)) {
-		arlo = 1;
-		I2C->ICR |= BIT(9);
 	}
 }

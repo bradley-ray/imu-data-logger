@@ -15,8 +15,6 @@ volatile uint8_t dma_rx_done = 0;
 volatile uint8_t dma_tx_done = 0;
 volatile uint8_t exti_done = 0;
 volatile uint8_t nack = 0;
-volatile uint8_t berr = 0;
-volatile uint8_t arlo = 0;
 
 
 // main loop
@@ -155,8 +153,6 @@ void i2c_init(uint8_t addr) {
 
 	// enable NACKIE
 	I2C->CR1 |= BIT(4);
-	// enable ERRIE
-	I2C->CR1 |= BIT(7);
 
 	// enable i2c
 	I2C->CR1 |= BIT(0);
