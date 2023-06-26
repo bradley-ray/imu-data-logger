@@ -1,4 +1,9 @@
-#include "hal.h"
+#include "rcc.h"
+#include "gpio.h"
+#include "uart.h"
+#include "dma.h"
+#include "i2c.h"
+#include "exti.h"
 #include "mpu6050.h"
 #include <stdio.h>
 
@@ -218,4 +223,14 @@ void exti_init(void) {
 	gpio_set_mode(GPIOB, 0, GPIO_MODE_INPUT);
 	gpio_set_pull(GPIOB, 0, GPIO_PULL_UP);
 	// GPIOB->AFRL |= (uint32_t)1 << 8;
+}
+
+void system_init(void) {
+	// HSIDIV = 1
+	RCC->CR &= (uint32_t)~(0x7 << 11);
+
+	// systick init
+	STK_CSR |= BIT(2) + BIT(1) + BIT(0);
+	STK_RVR = 48000-1;
+	STK_CVR |= 1;
 }

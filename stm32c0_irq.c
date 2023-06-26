@@ -1,5 +1,7 @@
 #include <stdint.h>
-#include "hal.h"
+#include "dma.h"
+#include "exti.h"
+#include "i2c.h"
 
 volatile uint32_t s_ticks = 0;
 extern volatile uint8_t dma_rx_done;
