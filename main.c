@@ -53,25 +53,15 @@ int main() {
 		while(!exti_done);
 		exti_done = 0;
 
-		// read int status
-		err = mpu_int_status(tx_buff);
-		if (err)
-			continue;
-		// read acceleration value
 		err = mpu_read_accel(accel_buff);
 		if (err)
 			continue;
-		// read gyroscope value
 		err = mpu_read_gyro(gyro_buff);
 		if (err)
 			continue;
 
 		uart2_write_byte('$');
-		uart2_write_byte(0);
 		uart2_write_buff(accel_buff, 6);
-
-		uart2_write_byte('$');
-		uart2_write_byte(1);
 		uart2_write_buff(gyro_buff, 6);
 	}
 	

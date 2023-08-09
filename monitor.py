@@ -1,38 +1,53 @@
 #!/usr/bin/env python3
-import serial
 
-ACCEL_SENS = 4096.0
-GYRO_SENS  = 32.8
+import sys
+import serial
+import csv
+
+
+ACCEL_SENS = 8192.0
+GYRO_SENS = 65.5
+
 
 def to_int(sens, num):
-    #d = high*256 + low
     d = int.from_bytes(num, 'big')
     if d & (1 << 15):
         d -= (1 << 16)
     return d / sens
 
+
 if __name__ == '__main__':
-    com = serial.Serial('/dev/ttyACM0', baudrate=115200)
+    filename = 'log.csv'
+    baud = 115200
+    port = ''
 
-    data = [0, 0, 0]
-    while(True):
-        if ord(com.read(1)) == ord('$'):
-            if ord(com.read(1)) == 0:
-                data[0] = to_int(ACCEL_SENS, com.read(1) + com.read(1))
-                data[1] = to_int(ACCEL_SENS, com.read(1) + com.read(1))
-                data[2] = to_int(ACCEL_SENS, com.read(1) + com.read(1))
-                print('Accel:')
-                print('---------')
-                print('\tx:', data[0], 'g')
-                print('\ty:', data[1], 'g')
-                print('\tz:', data[2], 'g')
-            elif ord(com.read(1)) == 1:
-                data[0] = to_int(GYRO_SENS, com.read(1) + com.read(1))
-                data[1] = to_int(GYRO_SENS, com.read(1) + com.read(1))
-                data[2] = to_int(GYRO_SENS, com.read(1) + com.read(1))
-                print('Gyro:')
-                print('---------')
-                print('\tx:', data[0], 'deg/s')
-                print('\ty:', data[1], 'deg/s')
-                print('\tz:', data[2], 'deg/s')
+    if len(sys.argv) > 2:
+        port = sys.argv[1]
+    else:
+        print("Please provide a serial port")
+        exit(1)
 
+    if len(sys.argv) > 3:
+        baud = int(sys.argv[2])
+    else:
+        print("using default baud: `115200`")
+
+    if len(sys.argv) > 3:
+        filename = sys.argv[3]
+    else:
+        print("using default filename: `log.csv`")
+
+    com = serial.Serial(port, baudrate=baud)
+    with open(filename, 'w') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['accel_x', 'accel_y', 'accel_z',
+                         'gyro_x', 'gyro_y', 'gyro_z'])
+
+        data = [0 for i in range(6)]
+        while True:
+            if com.read(1) == '$':
+                raw = com.read(12)
+                for i in range(0, 12, 2):
+                    sens = ACCEL_SENS if i < 6 else GYRO_SENS
+                    data[i] = to_int(sens, raw[i] + raw[i+1])
+                writer.writerow(data)
